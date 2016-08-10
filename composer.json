@@ -1,0 +1,31 @@
+{
+    "name": "guillem/http-replay-plugin",
+    "authors": [
+        {
+            "name": "Guillem CANAL",
+            "email": "hello@guillem.ninja"
+        }
+    ],
+    "autoload": {
+      "psr-4": {
+          "Http\\Client\\Common\\Plugin\\": "src/"
+      }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Http\\Client\\Common\\Plugin\\": "tests/",
+            "spec\\Http\\Client\\Common\\Plugin\\": "spec/"
+        }
+    },
+    "require": {
+        "php-http/httplug": "^1.0",
+        "php-http/message": "^1.3",
+        "psr/cache": "^1.0",
+        "php-http/client-common": "^1.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^5.5",
+        "php-http/discovery": "^1.0",
+        "phpspec/phpspec": "^3.0"
+    }
+}
