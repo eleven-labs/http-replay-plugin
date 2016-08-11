@@ -5,12 +5,12 @@ use Http\Client\Common\Plugin;
 use Http\Message\StreamFactory;
 use Http\Promise\FulfilledPromise;
 use PhpSpec\ObjectBehavior;
+use Prophecy\Argument;
 use Psr\Cache\CacheItemInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
-use Psr\Http\Message\UriInterface;
 
 class ReplayPluginSpec extends ObjectBehavior
 {
@@ -37,35 +37,72 @@ class ReplayPluginSpec extends ObjectBehavior
             return new FulfilledPromise($response->getWrappedObject());
         };
 
-        $this->shouldThrow(new \LogicException('You need to specify a replay bucket'))
-            ->duringHandleRequest($request, $next, function(){});
+        $this->shouldThrow(
+            new \LogicException('You need to specify a replay bucket')
+        )->duringHandleRequest($request, $next, function(){});
     }
 
-    public function it_need_the_user_to_enable_record_mode(
-        CacheItemPoolInterface $pool,
-        CacheItemInterface $cacheItem,
-        RequestInterface $request,
-        ResponseInterface $response,
-        UriInterface $uri,
-        StreamInterface $stream
-    ) {
-
-        $uri->__toString()->willReturn('http://domain.tld');
-        $stream->__toString()->willReturn('hello world');
-
-        $request->getUri()->willReturn($uri);
+    public function it_need_the_user_to_enable_record_mode(CacheItemPoolInterface $pool, CacheItemInterface $item, RequestInterface $request, ResponseInterface $response)
+    {
         $request->getMethod()->willReturn('GET');
+        $request->getUri()->willReturn('/');
         $request->getHeaders()->willReturn(['foo' => ['bar']]);
-        $request->getBody()->willReturn($stream);
+        $request->getBody()->willReturn('body');
 
-        $pool->getItem('testing-ddc150b492f4823e4903d7abf15fcdfb8c7e6aeb')->willReturn($cacheItem);
+        $item->isHit()->willReturn(false)->shouldBeCalled();
+
+        $pool->getItem('test-7a3defce4e5e9074e4bb6868a6875fddba6b1670')->willReturn($item);
+
         $next = function () use ($response) {
             return new FulfilledPromise($response->getWrappedObject());
         };
 
-        $this->setBucket('testing');
-        $this->shouldThrow(new \RuntimeException('Cannot replay request "GET http://domain.tld" because record mode is disable'))
-            ->duringHandleRequest($request, $next, function(){});
+        $this->setBucket('test');
 
+        $this->shouldThrow(
+            new \RuntimeException('Cannot replay request "GET /" because record mode is disable')
+        )->duringHandleRequest($request, $next, function(){});
     }
+
+
+    public function it_record_an_http_response(CacheItemPoolInterface $pool, CacheItemInterface $item, RequestInterface $request, ResponseInterface $response, StreamInterface $requestStream, StreamInterface $responseStream)
+    {
+        $requestHttpBody = 'body';
+        $requestStream->__toString()->willReturn($requestHttpBody);
+
+        $request->getMethod()->willReturn('GET');
+        $request->getUri()->willReturn('/');
+        $request->getHeaders()->willReturn(['foo' => ['bar']]);
+        $request->getBody()->willReturn($requestStream);
+
+        $responseHttpBody = '{"baz": "bat"}';
+        $responseStream->__toString()->willReturn($responseHttpBody);
+        $responseStream->isSeekable()->willReturn(true);
+        $responseStream->rewind()->shouldBeCalled();
+
+        $response->getStatusCode()->willReturn(200);
+        $response->getReasonPhrase()->willReturn('Ok');
+        $response->getHeaders()->willReturn(['foo' => ['bar']]);
+        $response->getBody()->willReturn($responseStream);
+
+        $pool->getItem(Argument::any())->willReturn($item)->shouldBeCalled();
+        $pool->save($item)->shouldBeCalled();
+
+        $item->isHit()->willReturn(false)->shouldBeCalled();
+        $item->set([
+            'response' => $response->getWrappedObject(),
+            'body' => $responseHttpBody
+        ])->shouldBeCalled();
+
+
+        $next = function () use ($response) {
+            return new FulfilledPromise($response->getWrappedObject());
+        };
+
+        $this->enableRecorder();
+        $this->setBucket('test-bucket');
+        $this->handleRequest($request, $next, function (){});
+    }
+
+
 }

@@ -33,7 +33,7 @@ class ReplayPlugin implements Plugin
      *
      * @var bool
      */
-    private $recordModeEnabled = false;
+    private $recorderEnabled = false;
 
     public function __construct(CacheItemPoolInterface $pool, StreamFactory $streamFactory)
     {
@@ -46,9 +46,9 @@ class ReplayPlugin implements Plugin
         $this->bucket = $name;
     }
 
-    public function enableRecordMode()
+    public function enableRecorder()
     {
-        $this->recordModeEnabled = true;
+        $this->recorderEnabled = true;
     }
 
     public function handleRequest(RequestInterface $request, callable $next, callable $first)
@@ -57,10 +57,12 @@ class ReplayPlugin implements Plugin
         $cacheItem = $this->pool->getItem($cacheKey);
 
         if ($cacheItem->isHit()) {
+
             return new FulfilledPromise($this->createResponseFromCacheItem($cacheItem));
         }
 
-        if (! $this->isRecordModeEnabled()) {
+        if ($this->recorderEnabled === false) {
+
             throw new \RuntimeException(sprintf(
                 'Cannot replay request "%s" because record mode is disable',
                 $request->getMethod().' '.$request->getUri()
@@ -126,14 +128,6 @@ class ReplayPlugin implements Plugin
         return $data['response']->withBody(
             $this->streamFactory->createStream($data['body'])
         );
-    }
-
-    /**
-     * @return boolean
-     */
-    public function isRecordModeEnabled()
-    {
-        return $this->recordModeEnabled;
     }
 
 }
