@@ -27,5 +27,8 @@
         "phpunit/phpunit": "^5.5",
         "php-http/discovery": "^1.0",
         "phpspec/phpspec": "^3.0"
+    },
+    "scripts": {
+        "test": "vendor/bin/phpspec run"
     }
 }
